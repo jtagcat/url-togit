@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/go-yaml/yaml"
 	"github.com/jtagcat/spotify-togit/pkg"
 	"github.com/zmb3/spotify/v2"
+	"gopkg.in/yaml.v2"
 )
 
 type profileWithPlaylists struct {

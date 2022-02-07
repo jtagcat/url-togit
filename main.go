@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-yaml/yaml"
 	"github.com/gogs/git-module"
 	"github.com/jtagcat/spotify-togit/pkg"
 	"github.com/zmb3/spotify/v2"
 	spotifyauth "github.com/zmb3/spotify/v2/auth"
 	"golang.org/x/oauth2/clientcredentials"
+	"gopkg.in/yaml.v2"
 )
 
 var (
