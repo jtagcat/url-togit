@@ -1,0 +1,12 @@
+services:
+  spotify-togit:
+    image: spotify-togit:build
+    build: https://github.com/jtagcat/spotify-togit#main
+    volumes:
+      - ./xyz:/wd/data
+    environment:
+      - SPOTIFY_ID=
+      - SPOTIFY_SECRET=
+      - GITDIR=/wd/data
+      - PERIOD=1440
+    restart: unless-stopped
