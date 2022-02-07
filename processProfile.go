@@ -30,17 +30,22 @@ func processProfile(mc mainCtx, errChan chan<- error, id spotify.ID) {
 	if err != nil {
 		errChan <- fmt.Errorf("couldn't get profile playlists for %q: %w", id, err)
 	}
-	for page := 1; ; page++ {
+	pftSum := pft.Playlists
+	for page := 2; ; page++ {
 		err = mc.c.NextPage(mc.ctx, pft)
 		if err == spotify.ErrNoMorePages {
 			break
 		}
 		if err != nil {
 			errChan <- fmt.Errorf("couldn't get profile playlists for %q: page %q %w", id, page, err)
+			return
 		}
+		pftSum = append(pftSum, pft.Playlists...)
 	}
+	// can't check len(), basePage is unexported
+
 	var mpl []minProfilePlaylist
-	for _, pl := range pft.Playlists {
+	for _, pl := range pftSum {
 		mpl = append(mpl, minProfilePlaylist{pl.ID, pl.Name})
 	}
 

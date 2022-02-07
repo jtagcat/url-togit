@@ -46,6 +46,7 @@ func processPlaylist(mc mainCtx, errChan chan<- error, id spotify.ID) {
 		errChan <- fmt.Errorf("couldn't get playlist tracks for %q: %w", id, err)
 	}
 
+	pltSum := plt.Tracks
 	for page := 1; ; page++ {
 		err = mc.c.NextPage(mc.ctx, plt)
 		if err == spotify.ErrNoMorePages {
@@ -54,10 +55,11 @@ func processPlaylist(mc mainCtx, errChan chan<- error, id spotify.ID) {
 		if err != nil {
 			errChan <- fmt.Errorf("couldn't get playlist tracks for %q: page %q %w", id, page, err)
 		}
+		pltSum = append(pltSum, plt.Tracks...)
 	}
 
 	var pltMin []minPlaylistTrack
-	for _, t := range plt.Tracks {
+	for _, t := range pltSum {
 		pltMin = append(pltMin, minPlaylistTrack{
 			AddedAt: t.AddedAt, AddedBy: t.AddedBy.ID, IsLocal: t.IsLocal,
 			Track: minTrack{ID: t.Track.ID, Name: t.Track.Name, Artists: t.Track.Artists,
