@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gogs/git-module"
-	"github.com/jtagcat/spotify-togit/pkg"
+	"github.com/jtagcat/go-shared"
 	"github.com/zmb3/spotify/v2"
 	spotifyauth "github.com/zmb3/spotify/v2/auth"
 	"golang.org/x/oauth2/clientcredentials"
@@ -51,11 +51,11 @@ func repoInit() (repo *git.Repository) {
 	if gitDir == "" {
 		log.Fatal("GITDIR not set")
 	}
-	gitDir, err := pkg.PathResolveTilde(gitDir)
+	gitDir, err := shared.PathResolveTilde(gitDir)
 	if err != nil {
 		log.Fatal(fmt.Errorf("couldn't resolve path for GITDIR: %v", err))
 	}
-	repo, rinitted, err := pkg.GitOpenOrInit(gitDir)
+	repo, rinitted, err := shared.GitOpenOrInit(gitDir)
 	if err != nil {
 		log.Fatal(fmt.Errorf("error opening git dir: %w", err))
 	}
@@ -66,7 +66,7 @@ func repoInit() (repo *git.Repository) {
 		if err != nil {
 			log.Fatal(fmt.Errorf("error marshalling empty config: %w", err))
 		}
-		err = pkg.GitWriteAdd(repo, configPath, e, modePerm)
+		err = shared.GitWriteAdd(repo, configPath, e, modePerm)
 		if err != nil {
 			log.Fatal(fmt.Errorf("error writing empty config: %w", err))
 		}

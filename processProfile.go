@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/jtagcat/spotify-togit/pkg"
+	"github.com/jtagcat/go-shared"
 	"github.com/zmb3/spotify/v2"
 	"gopkg.in/yaml.v2"
 )
@@ -49,7 +49,7 @@ func processProfile(mc mainCtx, errChan chan<- error, id spotify.ID) {
 		errChan <- fmt.Errorf("couldn't marshal profile %q: %w", id, err)
 		return
 	}
-	err = pkg.GitWriteAdd(mc.r, path.Join("profiles", id.String()+".yaml"), e, modePerm)
+	err = shared.GitWriteAdd(mc.r, path.Join("profiles", id.String()+".yaml"), e, modePerm)
 	if err != nil {
 		errChan <- fmt.Errorf("couldn't commit profile %q: %w", id, err)
 	}
