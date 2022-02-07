@@ -21,6 +21,7 @@ import (
 var (
 	configPath    = "config.yaml"
 	modePerm      = fs.FileMode(0660)
+	dirModePerm   = fs.FileMode(0770)
 	committerName = "spotify-togit"
 )
 
@@ -89,7 +90,10 @@ func main() {
 	r := repoInit()
 	mc := mainCtx{ctx, c, r}
 
-	log.Fatal(routine(mc))
+	err := routine(mc)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func routine(mc mainCtx) error {
@@ -104,41 +108,65 @@ func routine(mc mainCtx) error {
 	}
 
 	for _, dir := range []string{"playlists", "profiles"} {
-		err = os.Mkdir(path.Join(mc.r.Path(), dir), modePerm)
+		err = os.Mkdir(path.Join(mc.r.Path(), dir), dirModePerm)
 		if err != nil && errors.Is(os.ErrExist, err) {
 			return fmt.Errorf("error creating dir %q: %w", dir, err)
 		}
 	}
 
 	errChan := make(chan error)
+	// not launching goroutines for rate-limiting sanity
 	for _, playlist := range config.Playlists {
-		go processPlaylist(mc, errChan, playlist)
+		processPlaylist(mc, errChan, playlist)
 	}
 	for _, profile := range config.Profiles {
-		go processProfile(mc, errChan, profile)
+		processProfile(mc, errChan, profile)
 	}
 
-	for e := range errChan {
-		log.Print(e)
-	}
+	go func() {
+		for e := range errChan {
+			log.Print(e)
+		}
+	}()
 
 	return mc.r.Commit(&git.Signature{Name: committerName, Email: "", When: time.Now()}, "routine run")
 }
 
-// generics wen?
+type exportedPlaylist struct { // spotify.FullPlaylist with modifications
+	SimplePlaylist spotify.SimplePlaylist
+	Description    string
+	Followers      spotify.Followers
+	Tracks         []spotify.PlaylistTrack
+}
+
 func processPlaylist(mc mainCtx, errChan chan<- error, id spotify.ID) {
-	pl, err := mc.c.GetPlaylist(mc.ctx, id)
+	pl, err := mc.c.GetPlaylist(mc.ctx, id, spotify.Fields("tracks(!items),owner(!followers)"))
 	if err != nil {
 		errChan <- fmt.Errorf("couldn't get playlist %q: %w", id, err)
 		return
 	}
 
-	e, err := yaml.Marshal(pl)
+	plt, err := mc.c.GetPlaylistTracks(mc.ctx, id, spotify.Fields("items(addedby(!followers),track(!availablemarkets,album(!availablemarkets))"))
+	if err != nil {
+		errChan <- fmt.Errorf("couldn't get playlist tracks for %q: %w", id, err)
+	}
+	for page := 1; ; page++ {
+		err = mc.c.NextPage(mc.ctx, plt)
+		if err == spotify.ErrNoMorePages {
+			break
+		}
+		if err != nil {
+			errChan <- fmt.Errorf("couldn't get playlist tracks for %q: page %q %w", id, page, err)
+		}
+	}
+
+	e, err := yaml.Marshal(exportedPlaylist{SimplePlaylist: pl.SimplePlaylist, Description: pl.Description, Tracks: plt.Tracks})
 	if err != nil {
 		errChan <- fmt.Errorf("couldn't marshal playlist %q: %w", id, err)
 		return
 	}
-	err = pkg.GitWriteAdd(mc.r, path.Join("playlists", id.String()), e, modePerm)
+
+	err = pkg.GitWriteAdd(mc.r, path.Join("playlists", id.String()+".yaml"), e, modePerm)
 	if err != nil {
 		errChan <- fmt.Errorf("couldn't commit playlist %q: %w", id, err)
 	}
@@ -151,12 +179,12 @@ func processProfile(mc mainCtx, errChan chan<- error, id spotify.ID) {
 		return
 	}
 
-	e, err := yaml.Marshal(pl)
+	e, err := yaml.Marshal(&pl)
 	if err != nil {
 		errChan <- fmt.Errorf("couldn't marshal profile %q: %w", id, err)
 		return
 	}
-	err = pkg.GitWriteAdd(mc.r, path.Join("profiles", id.String()), e, modePerm)
+	err = pkg.GitWriteAdd(mc.r, path.Join("profiles", id.String()+".yaml"), e, modePerm)
 	if err != nil {
 		errChan <- fmt.Errorf("couldn't commit profile %q: %w", id, err)
 	}
