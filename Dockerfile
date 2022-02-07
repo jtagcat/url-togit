@@ -12,6 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app
 FROM alpine
 LABEL org.opencontainers.image.source="https://github.com/jtagcat/spotify-togit"
 WORKDIR /wd
-#RUN apk --no-cache add ca-certificates
+RUN apk add --no-cache git
+
 COPY --from=builder /wd/app ./
 CMD ["./app"]
