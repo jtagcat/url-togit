@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/go-yaml/yaml"
@@ -90,9 +91,19 @@ func main() {
 	r := repoInit()
 	mc := mainCtx{ctx, c, r}
 
-	err := routine(mc)
+	periodRaw := os.Getenv("PERIOD")
+	periodInt, err := strconv.Atoi(periodRaw)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("couldn't parse PERIOD: %v", err))
+	}
+	period := time.Duration(periodInt) * time.Minute
+
+	for period != 0 {
+		err := routine(mc)
+		if err != nil {
+			log.Fatal(err)
+		}
+		time.Sleep(period)
 	}
 }
 
