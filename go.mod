@@ -3,7 +3,7 @@ module github.com/jtagcat/spotify-togit
 go 1.17
 
 require (
-	github.com/jtagcat/go-shared v0.0.0-20220207204045-0c6028392746
+	github.com/jtagcat/go-shared v0.0.0-20220207210114-1fa7cc967bb5
 	github.com/zmb3/spotify/v2 v2.0.1
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	gopkg.in/yaml.v2 v2.4.0
