@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/jtagcat/go-shared"
+	"github.com/jtagcat/spotify-togit/pkg"
 	"github.com/zmb3/spotify/v2"
 	"gopkg.in/yaml.v2"
 )
@@ -77,7 +77,7 @@ func processPlaylist(mc mainCtx, errChan chan<- error, id spotify.ID) {
 		return
 	}
 
-	err = shared.GitWriteAdd(mc.r, path.Join("playlists", id.String()+".yaml"), e, modePerm)
+	err = pkg.GitWriteAdd(mc.r, path.Join("playlists", id.String()+".yaml"), e, modePerm)
 	if err != nil {
 		errChan <- fmt.Errorf("couldn't commit playlist %q: %w", id, err)
 	}
