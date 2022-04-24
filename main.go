@@ -20,7 +20,6 @@ import (
 
 var (
 	modePerm      = fs.FileMode(0o660)
-	dirModePerm   = fs.FileMode(0o770)
 	committerName = "url-togit"
 )
 
