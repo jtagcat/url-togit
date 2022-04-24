@@ -2,48 +2,27 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
-	"path"
 	"strconv"
 	"time"
 
 	"github.com/gogs/git-module"
+	simpleretry "github.com/jtagcat/simpleretry/pkg"
 	"github.com/jtagcat/spotify-togit/pkg"
-	"github.com/zmb3/spotify/v2"
-	spotifyauth "github.com/zmb3/spotify/v2/auth"
-	"golang.org/x/oauth2/clientcredentials"
-	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
-	configPath    = "config.yaml"
-	modePerm      = fs.FileMode(0660)
-	dirModePerm   = fs.FileMode(0770)
-	committerName = "spotify-togit"
+	modePerm      = fs.FileMode(0o660)
+	dirModePerm   = fs.FileMode(0o770)
+	committerName = "url-togit"
 )
-
-type Config struct {
-	Playlists []spotify.ID //`yaml:"Playlists,omitempty"`
-	Profiles  []spotify.ID
-}
-
-func spotifyInit(ctx context.Context) *spotify.Client {
-	config := &clientcredentials.Config{
-		ClientID:     os.Getenv("SPOTIFY_ID"),
-		ClientSecret: os.Getenv("SPOTIFY_SECRET"),
-		TokenURL:     spotifyauth.TokenURL,
-	}
-	token, err := config.Token(ctx)
-	if err != nil {
-		log.Fatalf("couldn't get token: %v", err)
-	}
-	httpClient := spotifyauth.New().Client(ctx, token)
-	return spotify.New(httpClient)
-}
 
 func repoInit() (repo *git.Repository) {
 	// open repo
@@ -55,41 +34,34 @@ func repoInit() (repo *git.Repository) {
 	if err != nil {
 		log.Fatal(fmt.Errorf("couldn't resolve path for GITDIR: %v", err))
 	}
-	repo, rinitted, err := pkg.GitOpenOrInit(gitDir)
+	repo, _, err = pkg.GitOpenOrInit(gitDir)
 	if err != nil {
 		log.Fatal(fmt.Errorf("error opening git dir: %w", err))
-	}
-
-	if rinitted {
-		// write empty config
-		e, err := yaml.Marshal(&Config{})
-		if err != nil {
-			log.Fatal(fmt.Errorf("error marshalling empty config: %w", err))
-		}
-		err = pkg.GitWriteAdd(repo, configPath, e, modePerm)
-		if err != nil {
-			log.Fatal(fmt.Errorf("error writing empty config: %w", err))
-		}
-		err = repo.Commit(&git.Signature{Name: committerName, Email: "", When: time.Now()}, "init with empty config")
-		if err != nil {
-			log.Fatal(fmt.Errorf("error committing empty config: %w", err))
-		}
 	}
 
 	return repo
 }
 
 type mainCtx struct {
-	ctx context.Context
-	c   *spotify.Client
-	r   *git.Repository
+	ctx      context.Context
+	r        *git.Repository
+	urlStr   string
+	fileName string
 }
 
 func main() {
 	ctx := context.Background()
-	c := spotifyInit(ctx)
 	r := repoInit()
-	mc := mainCtx{ctx, c, r}
+	urlStr := os.Getenv("URL")
+	_, err := url.ParseRequestURI(urlStr)
+	if err != nil {
+		log.Fatal(fmt.Errorf("couldn't parse URL: %v", err))
+	}
+	fileName := os.Getenv("FILENAME")
+	if fileName == "" || fileName == ".git" {
+		log.Fatal(fmt.Errorf("FILENAME must not be empty or \".git\""))
+	}
+	mc := mainCtx{ctx, r, urlStr, fileName}
 
 	periodRaw := os.Getenv("PERIOD")
 	periodInt, err := strconv.Atoi(periodRaw)
@@ -108,35 +80,32 @@ func main() {
 }
 
 func routine(mc mainCtx) error {
-	configRaw, err := os.ReadFile(path.Join(mc.r.Path(), configPath))
+	var Body []byte
+	err := simpleretry.OnError(wait.Backoff{
+		Duration: 3 * time.Second,
+		Factor:   2,
+		Jitter:   1,
+		Steps:    3,
+	}, func() (bool, error) {
+		res, err := http.Get(mc.urlStr)
+		if err != nil {
+			return true, err
+		}
+		if res.StatusCode > 299 {
+			return true, fmt.Errorf("Non-OK status code: %s", res.Status)
+		}
+		defer res.Body.Close()
+
+		Body, err = ioutil.ReadAll(res.Body)
+		return true, err
+	})
 	if err != nil {
-		return fmt.Errorf("error reading config: %w", err)
-	}
-	config := Config{}
-	err = yaml.Unmarshal(configRaw, &config)
-	if err != nil {
-		return fmt.Errorf("error unmarshalling config: %w", err)
+		return err
 	}
 
-	for _, dir := range []string{"playlists", "profiles"} {
-		err = os.Mkdir(path.Join(mc.r.Path(), dir), dirModePerm)
-		if err != nil && errors.Is(os.ErrExist, err) {
-			return fmt.Errorf("error creating dir %q: %w", dir, err)
-		}
-	}
-
-	errChan := make(chan error)
-	go func() {
-		for e := range errChan {
-			log.Print(e)
-		}
-	}()
-	// not launching goroutines for rate-limiting sanity
-	for _, playlist := range config.Playlists {
-		processPlaylist(mc, errChan, playlist)
-	}
-	for _, profile := range config.Profiles {
-		processProfile(mc, errChan, profile)
+	err = pkg.GitWriteAdd(mc.r, mc.fileName, Body, modePerm)
+	if err != nil {
+		return err
 	}
 
 	return mc.r.Commit(&git.Signature{Name: committerName, Email: "", When: time.Now()}, "routine run")

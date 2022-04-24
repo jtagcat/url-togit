@@ -1,5 +1,5 @@
 #FROM golang:$ver
-FROM golang:1.17 AS builder
+FROM golang:1.18 AS builder
 WORKDIR /wd
 
 COPY go.mod go.sum ./
@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app
 # https://docs.docker.com/develop/develop-images/multistage-build/#use-multi-stage-builds
 
 FROM alpine
-LABEL org.opencontainers.image.source="https://github.com/jtagcat/spotify-togit"
+LABEL org.opencontainers.image.source="https://github.com/jtagcat/url-togit"
 WORKDIR /wd
 RUN apk add --no-cache git
 

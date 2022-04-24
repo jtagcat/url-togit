@@ -1,12 +1,12 @@
 services:
-  spotify-togit:
-    image: spotify-togit:build
-    build: https://github.com/jtagcat/spotify-togit#main
+  url-togit:
+    image: url-togit:build
+    build: https://github.com/jtagcat/url-togit#main
     volumes:
       - ./xyz:/wd/data
     environment:
-      - SPOTIFY_ID=
-      - SPOTIFY_SECRET=
+      - URL=https://services.postimees.ee/radio/v1/elmar
+      - FILENAME=elmarCurrentlyPlaying.json
       - GITDIR=/wd/data
       - PERIOD=1440
     restart: unless-stopped
