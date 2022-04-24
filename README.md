@@ -7,4 +7,6 @@ Dumps a file from URL to a Git repo, and commits.
 ***
 This is slapped and bodged together, don't expect anything.
 
+Copy-pasta from https://github.com/jtagcat/spotify-togit.
+
 # ARCHIVE EVERYTHING
