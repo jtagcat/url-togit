@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/gogs/git-module"
-	simpleretry "github.com/jtagcat/simpleretry/pkg"
+	"github.com/jtagcat/simple"
 	"github.com/jtagcat/spotify-togit/pkg"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -80,7 +80,8 @@ func main() {
 
 func routine(mc mainCtx) error {
 	var Body []byte
-	err := simpleretry.OnError(wait.Backoff{
+
+	err := simple.RetryOnError(wait.Backoff{
 		Duration: 3 * time.Second,
 		Factor:   2,
 		Jitter:   1,
