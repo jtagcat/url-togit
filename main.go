@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/gogs/git-module"
-	"github.com/jtagcat/simple"
 	"github.com/jtagcat/spotify-togit/pkg"
+	"github.com/jtagcat/util/retry"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -81,7 +81,7 @@ func main() {
 func routine(mc mainCtx) error {
 	var Body []byte
 
-	err := simple.RetryOnError(wait.Backoff{
+	err := retry.OnError(wait.Backoff{
 		Duration: 3 * time.Second,
 		Factor:   2,
 		Jitter:   1,
@@ -96,7 +96,7 @@ func routine(mc mainCtx) error {
 		}
 		defer res.Body.Close()
 
-		Body, err = ioutil.ReadAll(res.Body)
+		Body, err = io.ReadAll(res.Body)
 		return true, err
 	})
 	if err != nil {
