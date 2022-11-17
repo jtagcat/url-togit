@@ -1,7 +1,7 @@
 services:
   url-togit:
     image: url-togit:build
-    build: https://github.com/jtagcat/url-togit#main
+    build: https://github.com/jtagcat/url-togit.git#main
     volumes:
       - ./xyz:/wd/data
     environment:
